@@ -80,10 +80,6 @@ public class DefaultReactor implements Reactor, Runnable {
 		}
 	}
 
-	private Reactor getThisReactor() {
-		return this;
-	}
-
 	public void addPortListener(final SocketAddress sa,
 			final AcceptHandler acceptHandler) {
 		final CountDownLatch sync = new CountDownLatch(1);
@@ -103,7 +99,7 @@ public class DefaultReactor implements Reactor, Runnable {
 								sc.configureBlocking(false);
 								sc.register(selector, OP_NONE);
 								// acceptorMap.get(ssc).onAccept(getThis(), sc);
-								acceptHandler.onAccept(getThisReactor(), sc);
+								acceptHandler.onAccept(DefaultReactor.this, sc);
 							} catch (Exception e) {
 								// more complex exception handling
 								e.printStackTrace();
@@ -144,7 +140,7 @@ public class DefaultReactor implements Reactor, Runnable {
 							try {
 								sc.finishConnect();
 								sc.register(selector, OP_NONE);
-								connectHandler.onConnect(getThisReactor(), sc);
+								connectHandler.onConnect(DefaultReactor.this, sc);
 							} catch (IOException e) {
 								// more complex exception handling
 								e.printStackTrace();

@@ -8,7 +8,7 @@ import com.deltapunkt.secproxy.Message;
 public interface Reactor {
 	void start();
 
-	void addPortListener(SocketAddress sa, AcceptHandler pf);
+	void registerAcceptor(SocketAddress sa, AcceptHandler pf);
 
 	void connect(SocketAddress targetAddress, ConnectHandler ch);
 

@@ -1,13 +1,14 @@
 package com.deltapunkt.secproxy;
 
 import java.io.IOException;
+import java.net.ServerSocket;
 import java.net.SocketAddress;
+import java.net.SocketException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingDeque;
@@ -23,8 +24,7 @@ public class DefaultReactor implements Reactor, Runnable {
 	private volatile boolean running;
 	private final ExecutorService es;
 	private final Selector selector;
-	private final BlockingQueue<Runnable> cmdQueue;
-//	private final ConcurrentHashMap<ServerSocketChannel, AcceptHandler> acceptorMap;
+	private final BlockingQueue<Runnable> commandQueue;
 
 	private final ConnectionManager connectionManager;
 
@@ -37,8 +37,7 @@ public class DefaultReactor implements Reactor, Runnable {
 			e.printStackTrace();
 			throw new RuntimeException("Selector.open() failed!", e);
 		}
-		cmdQueue = new LinkedBlockingDeque<Runnable>();
-//		acceptorMap = new ConcurrentHashMap<ServerSocketChannel, AcceptHandler>();
+		commandQueue = new LinkedBlockingDeque<Runnable>();
 	}
 
 	public void start() {
@@ -51,9 +50,9 @@ public class DefaultReactor implements Reactor, Runnable {
 			try {
 				while (selector.keys().isEmpty()) {
 					// wait here for ServerSocket registration
-					cmdQueue.take().run();
+					commandQueue.take().run();
 				}
-				processCmdQueue();
+				processCommandQueue();
 				try {
 					selector.select();
 
@@ -73,61 +72,82 @@ public class DefaultReactor implements Reactor, Runnable {
 		}
 	}
 
-	private void processCmdQueue() {
+	private void processCommandQueue() {
 		Runnable r;
-		while ((r = cmdQueue.poll()) != null) {
+		while ((r = commandQueue.poll()) != null) {
 			r.run();
 		}
 	}
 
-	public void addPortListener(final SocketAddress sa,
-			final AcceptHandler acceptHandler) {
-		final CountDownLatch sync = new CountDownLatch(1);
-		cmdQueue.offer(new Runnable() {
-			ServerSocketChannel ssc;
+	class AcceptCommand implements Runnable {
+		private ServerSocketChannel serverSocketChannel;
+		private AcceptHandler acceptHandler;
 
-			public void run() {
-				try {
-					ssc = ServerSocketChannel.open();
-					ssc.configureBlocking(false);
-					ssc.socket().setReuseAddress(true);
-					ssc.socket().bind(sa);
-					Runnable acceptCommand = new Runnable() {
-						public void run() {
-							try {
-								SocketChannel sc = ssc.accept();
-								sc.configureBlocking(false);
-								sc.register(selector, OP_NONE);
-								// acceptorMap.get(ssc).onAccept(getThis(), sc);
-								acceptHandler.onAccept(DefaultReactor.this, sc);
-							} catch (Exception e) {
-								// more complex exception handling
-								e.printStackTrace();
-								throw new RuntimeException("Accept Error!", e);
-							}
-						}
-					};
-					ssc.register(selector, SelectionKey.OP_ACCEPT,
-							acceptCommand);
-					// acceptorMap.put(ssc, acceptHandler);
-					sync.countDown();
-					System.out.println("Listener added!");
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
+		public AcceptCommand(ServerSocketChannel serverSocketChannel,
+				AcceptHandler acceptHandler) {
+			this.serverSocketChannel = serverSocketChannel;
+			this.acceptHandler = acceptHandler;
+		}
+
+		public void run() {
+			try {
+				SocketChannel socketChannel = serverSocketChannel.accept();
+				socketChannel.configureBlocking(false);
+				socketChannel.register(selector, OP_NONE);
+				acceptHandler.onAccept(DefaultReactor.this, socketChannel);
+			} catch (Exception e) {
+				// more complex exception handling
+				e.printStackTrace();
+				throw new RuntimeException("Accept Error!", e);
 			}
-		});
+		}
+	}
+
+	public void registerAcceptor(SocketAddress acceptAddress,
+			AcceptHandler acceptHandler) {
+		commandQueue.offer(new RegisterAcceptorCommand(acceptAddress,
+				acceptHandler));
 		selector.wakeup();
-		try {
-			sync.await();
-		} catch (InterruptedException e) {
-			e.printStackTrace();
+	}
+
+	class RegisterAcceptorCommand implements Runnable {
+		private SocketAddress acceptAddress;
+		private AcceptHandler acceptHandler;
+
+		public RegisterAcceptorCommand(SocketAddress acceptAddress,
+				AcceptHandler acceptHandler) {
+			this.acceptAddress = acceptAddress;
+			this.acceptHandler = acceptHandler;
+		}
+
+		public void run() {
+			try {
+				ServerSocketChannel serverSocketChannel = createServerSocket(acceptAddress);
+				serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT,
+						new AcceptCommand(serverSocketChannel, acceptHandler));
+				System.out.println("Acceptor added!");
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+
+		private ServerSocketChannel createServerSocket(SocketAddress acceptAddress)
+				throws IOException, SocketException {
+
+			ServerSocketChannel serverSocketChannel = ServerSocketChannel
+					.open();
+			serverSocketChannel.configureBlocking(false);
+			ServerSocket serverSocket = serverSocketChannel.socket();
+			serverSocket.setReuseAddress(true);
+			serverSocket.bind(acceptAddress);
+
+			return serverSocketChannel;
 		}
 	}
 
 	public void connect(final SocketAddress targetAddress,
 			final ConnectHandler connectHandler) {
-		cmdQueue.offer(new Runnable() {
+		commandQueue.offer(new Runnable() {
 			private SocketChannel sc;
 
 			public void run() {
@@ -140,7 +160,8 @@ public class DefaultReactor implements Reactor, Runnable {
 							try {
 								sc.finishConnect();
 								sc.register(selector, OP_NONE);
-								connectHandler.onConnect(DefaultReactor.this, sc);
+								connectHandler.onConnect(DefaultReactor.this,
+										sc);
 							} catch (IOException e) {
 								// more complex exception handling
 								e.printStackTrace();
@@ -160,7 +181,7 @@ public class DefaultReactor implements Reactor, Runnable {
 	}
 
 	public void makeChannelReadable(final SocketChannel sc) {
-		cmdQueue.offer(new Runnable() {
+		commandQueue.offer(new Runnable() {
 			public void run() {
 				try {
 					Runnable readCommand = new Runnable() {
@@ -186,7 +207,7 @@ public class DefaultReactor implements Reactor, Runnable {
 	}
 
 	public void makeChannelWritable(final SocketChannel sc) {
-		cmdQueue.offer(new Runnable() {
+		commandQueue.offer(new Runnable() {
 			public void run() {
 				Runnable writeCommand = new Runnable() {
 					public void run() {

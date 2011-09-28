@@ -22,6 +22,6 @@ public class Main
 		SocketAddress targetAddress = new InetSocketAddress("localhost", SERVER_PORT);
 		ProxyFactory pf = new PortForwardProxyFactory(targetAddress);
 		SocketAddress proxyAddress = new InetSocketAddress("localhost", PROXY_PORT);
-		reactor.addPortListener(proxyAddress, pf);
+		reactor.registerAcceptor(proxyAddress, pf);
     }
 }

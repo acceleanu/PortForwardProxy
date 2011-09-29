@@ -10,7 +10,7 @@ public interface Reactor {
 
 	void registerAcceptor(SocketAddress sa, AcceptHandler pf);
 
-	void connect(SocketAddress targetAddress, ConnectHandler ch);
+	void registerConnector(SocketAddress targetAddress, ConnectHandler ch);
 
 	void registerChannelHandler(SocketChannel sc, MessageConsumer ch);
 	

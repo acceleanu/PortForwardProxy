@@ -17,7 +17,7 @@ public class PortForwardProxyFactory implements ProxyFactory {
 
 	public void onAccept(Reactor reactor, final SocketChannel clientChannel) {
 		System.out.println("Client connection accepted! " + clientChannel);
-		reactor.connect(targetAddress, new ConnectHandler() {
+		reactor.registerConnector(targetAddress, new ConnectHandler() {
 			public void onConnect(Reactor reactor, SocketChannel targetChannel) {
 				System.out.println("Target connection completed! ");
 				Proxy proxy = new PortForwardProxy(reactor, clientChannel, targetChannel);

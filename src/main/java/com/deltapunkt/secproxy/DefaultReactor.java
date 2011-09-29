@@ -1,9 +1,7 @@
 package com.deltapunkt.secproxy;
 
 import java.io.IOException;
-import java.net.ServerSocket;
 import java.net.SocketAddress;
-import java.net.SocketException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
@@ -18,7 +16,8 @@ import com.deltapunkt.secproxy.interfaces.ConnectHandler;
 import com.deltapunkt.secproxy.interfaces.MessageConsumer;
 import com.deltapunkt.secproxy.interfaces.Reactor;
 
-public class DefaultReactor implements Reactor, Runnable {
+public class DefaultReactor implements Reactor, Runnable
+{
 	private static final int OP_NONE = 0;
 
 	private volatile boolean running;
@@ -28,43 +27,55 @@ public class DefaultReactor implements Reactor, Runnable {
 
 	private final ConnectionManager connectionManager;
 
-	public DefaultReactor(ConnectionManager connectionManager) {
+	public DefaultReactor(ConnectionManager connectionManager)
+	{
 		this.connectionManager = connectionManager;
 		es = Executors.newSingleThreadExecutor();
-		try {
+		try
+		{
 			selector = Selector.open();
-		} catch (IOException e) {
+		} catch (IOException e)
+		{
 			e.printStackTrace();
 			throw new RuntimeException("Selector.open() failed!", e);
 		}
 		commandQueue = new LinkedBlockingDeque<Runnable>();
 	}
 
-	public void start() {
+	public void start()
+	{
 		es.execute(this);
 	}
 
-	public void run() {
+	public void run()
+	{
 		running = true;
-		while (running) {
-			try {
-				while (selector.keys().isEmpty()) {
+		while (running)
+		{
+			try
+			{
+				while (selector.keys().isEmpty())
+				{
 					// wait here for ServerSocket registration
 					commandQueue.take().run();
 				}
 				processCommandQueue();
-				try {
+				try
+				{
 					selector.select();
 
-					for (SelectionKey key : selector.selectedKeys()) {
+					for (SelectionKey key : selector.selectedKeys())
+					{
 						((Runnable) key.attachment()).run();
 					}
 					selector.selectedKeys().clear();
 
-				} catch (IOException e) {
+				} catch (IOException e)
+				{
 					e.printStackTrace();
 				}
-			} catch (InterruptedException ie) {
+			} catch (InterruptedException ie)
+			{
 				ie.printStackTrace();
 				Thread.currentThread().interrupt();
 				running = false;
@@ -72,30 +83,36 @@ public class DefaultReactor implements Reactor, Runnable {
 		}
 	}
 
-	private void processCommandQueue() {
+	private void processCommandQueue()
+	{
 		Runnable r;
-		while ((r = commandQueue.poll()) != null) {
+		while ((r = commandQueue.poll()) != null)
+		{
 			r.run();
 		}
 	}
 
-	class AcceptCommand implements Runnable {
-		private ServerSocketChannel serverSocketChannel;
-		private AcceptHandler acceptHandler;
+	class NIOAcceptEventHandler implements Runnable
+	{
+		private final ServerSocketChannel serverChannel;
+		private final AcceptHandler acceptHandler;
 
-		public AcceptCommand(ServerSocketChannel serverSocketChannel,
-				AcceptHandler acceptHandler) {
-			this.serverSocketChannel = serverSocketChannel;
+		public NIOAcceptEventHandler(ServerSocketChannel serverChannel, AcceptHandler acceptHandler)
+		{
+			this.serverChannel = serverChannel;
 			this.acceptHandler = acceptHandler;
 		}
 
-		public void run() {
-			try {
-				SocketChannel socketChannel = serverSocketChannel.accept();
-				socketChannel.configureBlocking(false);
-				socketChannel.register(selector, OP_NONE);
-				acceptHandler.onAccept(DefaultReactor.this, socketChannel);
-			} catch (Exception e) {
+		public void run()
+		{
+			try
+			{
+				SocketChannel clientChannel = serverChannel.accept();
+				clientChannel.configureBlocking(false);
+				clientChannel.register(selector, OP_NONE);
+				acceptHandler.onAccept(DefaultReactor.this, clientChannel);
+			} catch (Exception e)
+			{
 				// more complex exception handling
 				e.printStackTrace();
 				throw new RuntimeException("Accept Error!", e);
@@ -103,92 +120,114 @@ public class DefaultReactor implements Reactor, Runnable {
 		}
 	}
 
-	public void registerAcceptor(SocketAddress acceptAddress,
-			AcceptHandler acceptHandler) {
-		commandQueue.offer(new RegisterAcceptorCommand(acceptAddress,
-				acceptHandler));
-		selector.wakeup();
-	}
+	class NIORegisterAcceptorCommand implements Runnable
+	{
+		private final SocketAddress acceptAddress;
+		private final AcceptHandler acceptHandler;
 
-	class RegisterAcceptorCommand implements Runnable {
-		private SocketAddress acceptAddress;
-		private AcceptHandler acceptHandler;
-
-		public RegisterAcceptorCommand(SocketAddress acceptAddress,
-				AcceptHandler acceptHandler) {
+		public NIORegisterAcceptorCommand(SocketAddress acceptAddress, AcceptHandler acceptHandler)
+		{
 			this.acceptAddress = acceptAddress;
 			this.acceptHandler = acceptHandler;
 		}
 
-		public void run() {
-			try {
-				ServerSocketChannel serverSocketChannel = createServerSocket(acceptAddress);
-				serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT,
-						new AcceptCommand(serverSocketChannel, acceptHandler));
-				System.out.println("Acceptor added!");
-			} catch (IOException e) {
+		public void run()
+		{
+			try
+			{
+				ServerSocketChannel serverChannel = NIOUtil.createServerChannel(acceptAddress);
+				serverChannel.register(selector, SelectionKey.OP_ACCEPT, new NIOAcceptEventHandler(serverChannel, acceptHandler));
+				System.out.println("Acceptor registered!");
+			} catch (IOException e)
+			{
 				e.printStackTrace();
 			}
 		}
-
-		private ServerSocketChannel createServerSocket(SocketAddress acceptAddress)
-				throws IOException, SocketException {
-
-			ServerSocketChannel serverSocketChannel = ServerSocketChannel
-					.open();
-			serverSocketChannel.configureBlocking(false);
-			ServerSocket serverSocket = serverSocketChannel.socket();
-			serverSocket.setReuseAddress(true);
-			serverSocket.bind(acceptAddress);
-
-			return serverSocketChannel;
-		}
 	}
 
-	public void connect(final SocketAddress targetAddress,
-			final ConnectHandler connectHandler) {
-		commandQueue.offer(new Runnable() {
-			private SocketChannel sc;
-
-			public void run() {
-				try {
-					sc = SocketChannel.open();
-					sc.configureBlocking(false);
-					sc.connect(targetAddress);
-					Runnable connectCommand = new Runnable() {
-						public void run() {
-							try {
-								sc.finishConnect();
-								sc.register(selector, OP_NONE);
-								connectHandler.onConnect(DefaultReactor.this,
-										sc);
-							} catch (IOException e) {
-								// more complex exception handling
-								e.printStackTrace();
-								throw new RuntimeException("Connect Error!", e);
-							}
-						}
-					};
-					sc.register(selector, SelectionKey.OP_CONNECT,
-							connectCommand);
-					System.out.println("Listener added!");
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-			}
-		});
+	public void registerAcceptor(SocketAddress acceptAddress, AcceptHandler acceptHandler)
+	{
+		commandQueue.offer(new NIORegisterAcceptorCommand(acceptAddress, acceptHandler));
 		selector.wakeup();
 	}
 
-	public void makeChannelReadable(final SocketChannel sc) {
-		commandQueue.offer(new Runnable() {
-			public void run() {
-				try {
-					Runnable readCommand = new Runnable() {
-						public void run() {
-							try {
+	class NIOConnectEventHandler implements Runnable
+	{
+		private SocketChannel socketChannel;
+		private ConnectHandler connectHandler;
+
+		NIOConnectEventHandler(SocketChannel socketChannel, ConnectHandler connectHandler)
+		{
+			this.socketChannel = socketChannel;
+			this.connectHandler = connectHandler;
+		}
+
+		public void run()
+		{
+			try
+			{
+				socketChannel.finishConnect();
+				socketChannel.register(selector, OP_NONE);
+				connectHandler.onConnect(DefaultReactor.this, socketChannel);
+			} catch (IOException e)
+			{
+				// more complex exception handling
+				e.printStackTrace();
+				throw new RuntimeException("Connect Error!", e);
+			}
+		}
+	}
+
+	class NIORegisterConnectorCommand implements Runnable
+	{
+		private final SocketAddress targetAddress;
+		private final ConnectHandler connectHandler;
+
+		NIORegisterConnectorCommand(SocketAddress targetAddress, ConnectHandler connectHandler)
+		{
+			this.targetAddress = targetAddress;
+			this.connectHandler = connectHandler;
+		}
+
+		public void run()
+		{
+			try
+			{
+				SocketChannel clientChannel = NIOUtil.createClientChannel();
+				clientChannel.connect(targetAddress);
+
+				clientChannel.register(selector, SelectionKey.OP_CONNECT, new NIOConnectEventHandler(clientChannel, connectHandler));
+				System.out.println("Connector registered!");
+			} catch (IOException e)
+			{
+				e.printStackTrace();
+			}
+		}
+	}
+
+	public void registerConnector(SocketAddress connectAddress, ConnectHandler connectHandler)
+	{
+		commandQueue.offer(new NIORegisterConnectorCommand(connectAddress, connectHandler));
+		selector.wakeup();
+	}
+
+	public void makeChannelReadable(final SocketChannel sc)
+	{
+		commandQueue.offer(new Runnable()
+		{
+			public void run()
+			{
+				try
+				{
+					Runnable readCommand = new Runnable()
+					{
+						public void run()
+						{
+							try
+							{
 								connectionManager.onRead(sc);
-							} catch (Exception e) {
+							} catch (Exception e)
+							{
 								// more complex exception handling
 								e.printStackTrace();
 								throw new RuntimeException("Read Error!", e);
@@ -196,7 +235,8 @@ public class DefaultReactor implements Reactor, Runnable {
 						}
 					};
 					sc.register(selector, SelectionKey.OP_READ, readCommand);
-				} catch (Exception e) {
+				} catch (Exception e)
+				{
 					System.out.println("sc=" + sc);
 					e.printStackTrace();
 					throw new RuntimeException(e);
@@ -206,27 +246,36 @@ public class DefaultReactor implements Reactor, Runnable {
 		selector.wakeup();
 	}
 
-	public void makeChannelWritable(final SocketChannel sc) {
-		commandQueue.offer(new Runnable() {
-			public void run() {
-				Runnable writeCommand = new Runnable() {
-					public void run() {
-						try {
-							boolean finishedWriting = connectionManager
-									.onWrite(sc);
-							if (finishedWriting) {
+	public void makeChannelWritable(final SocketChannel sc)
+	{
+		commandQueue.offer(new Runnable()
+		{
+			public void run()
+			{
+				Runnable writeCommand = new Runnable()
+				{
+					public void run()
+					{
+						try
+						{
+							boolean finishedWriting = connectionManager.onWrite(sc);
+							if (finishedWriting)
+							{
 								makeChannelReadable(sc);
 							}
-						} catch (Exception e) {
+						} catch (Exception e)
+						{
 							// more complex exception handling
 							e.printStackTrace();
 							throw new RuntimeException("Write Error!", e);
 						}
 					}
 				};
-				try {
+				try
+				{
 					sc.register(selector, SelectionKey.OP_WRITE, writeCommand);
-				} catch (Exception e) {
+				} catch (Exception e)
+				{
 					e.printStackTrace();
 					System.out.println("sc=" + sc);
 					throw new RuntimeException(e);
@@ -236,18 +285,20 @@ public class DefaultReactor implements Reactor, Runnable {
 		selector.wakeup();
 	}
 
-	public void registerChannelHandler(SocketChannel sc,
-			MessageConsumer messageConsumer) {
+	public void registerChannelHandler(SocketChannel sc, MessageConsumer messageConsumer)
+	{
 		connectionManager.addConnection(sc, messageConsumer);
 	}
 
-	public void sendMessage(Message message) {
+	public void sendMessage(Message message)
+	{
 		// add to cmd queue
 		connectionManager.sendMessage(message);
 		makeChannelWritable(message.getChannel());
 	}
 
-	public void stop() {
+	public void stop()
+	{
 		running = false;
 		selector.wakeup();
 		es.shutdown();

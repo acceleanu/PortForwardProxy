@@ -17,7 +17,7 @@ public class Main
 		TaskScheduler taskScheduler = new TaskScheduler(10);
 		ConnectionManager connectionHandler = new PeerConnectionManager(taskScheduler);
 		
-		Reactor reactor = new DefaultReactor(connectionHandler);
+		Reactor reactor = DefaultReactor.create(connectionHandler);
 		reactor.start();
 		SocketAddress targetAddress = new InetSocketAddress("localhost", SERVER_PORT);
 		ProxyFactory pf = new PortForwardProxyFactory(reactor, targetAddress);

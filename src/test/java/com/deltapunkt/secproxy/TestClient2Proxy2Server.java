@@ -59,7 +59,7 @@ public class TestClient2Proxy2Server {
 		TaskScheduler taskScheduler = new TaskScheduler(10);
 		ConnectionManager connectionHandler = new PeerConnectionManager(
 				taskScheduler);
-		return new DefaultReactor(connectionHandler);
+		return DefaultReactor.create(connectionHandler);
 	}
 
 	private Server createTestServer(final String serverMessageSentToClient) {

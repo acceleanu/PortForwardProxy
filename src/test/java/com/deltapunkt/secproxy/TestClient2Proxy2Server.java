@@ -31,7 +31,7 @@ public class TestClient2Proxy2Server {
 
 		SocketAddress targetAddress = new InetSocketAddress("localhost",
 				SERVER_PORT);
-		ProxyFactory proxyFactory = new PortForwardProxyFactory(targetAddress);
+		ProxyFactory proxyFactory = new PortForwardProxyFactory(reactor, targetAddress);
 		SocketAddress proxyAddress = new InetSocketAddress("localhost",
 				PROXY_PORT);
 

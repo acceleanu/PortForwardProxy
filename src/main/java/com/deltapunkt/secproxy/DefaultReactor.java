@@ -110,7 +110,7 @@ public class DefaultReactor implements Reactor, Runnable
 				SocketChannel clientChannel = serverChannel.accept();
 				clientChannel.configureBlocking(false);
 				clientChannel.register(selector, OP_NONE);
-				acceptHandler.onAccept(DefaultReactor.this, clientChannel);
+				acceptHandler.onAccept(clientChannel);
 			} catch (Exception e)
 			{
 				// more complex exception handling
@@ -168,7 +168,7 @@ public class DefaultReactor implements Reactor, Runnable
 			{
 				socketChannel.finishConnect();
 				socketChannel.register(selector, OP_NONE);
-				connectHandler.onConnect(DefaultReactor.this, socketChannel);
+				connectHandler.onConnect(socketChannel);
 			} catch (IOException e)
 			{
 				// more complex exception handling

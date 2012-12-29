@@ -20,7 +20,7 @@ public class Main
 		Reactor reactor = new DefaultReactor(connectionHandler);
 		reactor.start();
 		SocketAddress targetAddress = new InetSocketAddress("localhost", SERVER_PORT);
-		ProxyFactory pf = new PortForwardProxyFactory(targetAddress);
+		ProxyFactory pf = new PortForwardProxyFactory(reactor, targetAddress);
 		SocketAddress proxyAddress = new InetSocketAddress("localhost", PROXY_PORT);
 		reactor.registerAcceptor(proxyAddress, pf);
     }

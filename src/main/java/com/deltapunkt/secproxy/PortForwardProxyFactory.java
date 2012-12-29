@@ -10,17 +10,20 @@ import com.deltapunkt.secproxy.interfaces.Reactor;
 
 public class PortForwardProxyFactory implements ProxyFactory {
 	private final SocketAddress targetAddress;
-	
-	public PortForwardProxyFactory(SocketAddress targetAddress) {
+	private final Reactor reactor;
+
+	public PortForwardProxyFactory(Reactor reactor, SocketAddress targetAddress) {
+		this.reactor = reactor;
 		this.targetAddress = targetAddress;
 	}
 
-	public void onAccept(Reactor reactor, final SocketChannel clientChannel) {
+	public void onAccept(final SocketChannel clientChannel) {
 		System.out.println("Client connection accepted! " + clientChannel);
 		reactor.registerConnector(targetAddress, new ConnectHandler() {
-			public void onConnect(Reactor reactor, SocketChannel targetChannel) {
+			public void onConnect(SocketChannel targetChannel) {
 				System.out.println("Target connection completed! ");
-				Proxy proxy = new PortForwardProxy(reactor, clientChannel, targetChannel);
+				Proxy proxy = new PortForwardProxy(reactor, clientChannel,
+						targetChannel);
 				reactor.registerChannelHandler(clientChannel, proxy);
 				reactor.registerChannelHandler(targetChannel, proxy);
 				reactor.makeChannelReadable(clientChannel);

@@ -6,6 +6,7 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
+import java.util.Iterator;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
 
@@ -41,7 +42,11 @@ public class DefaultReactor implements Reactor {
 		this.commandQueue = commandQueue;
 	}
 
-	private void processCommandQueue() {
+	private void processCommandQueue() throws InterruptedException {
+		while (selector.keys().isEmpty()) {
+			// wait here for ServerSocket registration
+			commandQueue.take().run();
+		}
 		Runnable r;
 		while ((r = commandQueue.poll()) != null) {
 			r.run();
@@ -230,21 +235,23 @@ public class DefaultReactor implements Reactor {
 	}
 
 	public void processQueues() throws InterruptedException {
-		while (selector.keys().isEmpty()) {
-			// wait here for ServerSocket registration
-			commandQueue.take().run();
-		}
 		processCommandQueue();
 		try {
 			selector.select();
-
-			for (SelectionKey key : selector.selectedKeys()) {
-				((Runnable) key.attachment()).run();
-			}
-			selector.selectedKeys().clear();
-
 		} catch (IOException e) {
 			e.printStackTrace();
+		}
+		Iterator<SelectionKey> it = selector.selectedKeys().iterator();
+		while (it.hasNext()) {
+			SelectionKey key = it.next();
+			it.remove();
+			try {
+				((Runnable) key.attachment()).run();
+			} catch (Exception e) {
+				System.err
+						.println("Caught while running the reactor event handler");
+				e.printStackTrace();
+			}
 		}
 	}
 }

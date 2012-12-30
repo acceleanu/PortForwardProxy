@@ -7,8 +7,6 @@ import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingDeque;
 
 import com.deltapunkt.secproxy.interfaces.AcceptHandler;
@@ -16,19 +14,14 @@ import com.deltapunkt.secproxy.interfaces.ConnectHandler;
 import com.deltapunkt.secproxy.interfaces.MessageConsumer;
 import com.deltapunkt.secproxy.interfaces.Reactor;
 
-public class DefaultReactor implements Reactor, Runnable {
+public class DefaultReactor implements Reactor {
 	private static final int OP_NONE = 0;
-
-	private volatile boolean running;
-	private final ExecutorService executorService;
 
 	private final Selector selector;
 	private final BlockingQueue<Runnable> commandQueue;
 	private final ConnectionManager connectionManager;
 
 	public static DefaultReactor create(ConnectionManager connectionManager) {
-		ExecutorService executorService = Executors.newSingleThreadExecutor();
-
 		Selector selector;
 		try {
 			selector = Selector.open();
@@ -38,49 +31,14 @@ public class DefaultReactor implements Reactor, Runnable {
 		}
 
 		BlockingQueue<Runnable> commandQueue = new LinkedBlockingDeque<Runnable>();
-		return new DefaultReactor(connectionManager, executorService, selector,
-				commandQueue);
+		return new DefaultReactor(connectionManager, selector, commandQueue);
 	}
 
 	private DefaultReactor(ConnectionManager connectionManager,
-			ExecutorService executorService, Selector selector,
-			BlockingQueue<Runnable> commandQueue) {
+			Selector selector, BlockingQueue<Runnable> commandQueue) {
 		this.connectionManager = connectionManager;
-		this.executorService = executorService;
 		this.selector = selector;
 		this.commandQueue = commandQueue;
-	}
-
-	public void start() {
-		executorService.execute(this);
-	}
-
-	public void run() {
-		running = true;
-		while (running) {
-			try {
-				while (selector.keys().isEmpty()) {
-					// wait here for ServerSocket registration
-					commandQueue.take().run();
-				}
-				processCommandQueue();
-				try {
-					selector.select();
-
-					for (SelectionKey key : selector.selectedKeys()) {
-						((Runnable) key.attachment()).run();
-					}
-					selector.selectedKeys().clear();
-
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-			} catch (InterruptedException ie) {
-				ie.printStackTrace();
-				Thread.currentThread().interrupt();
-				running = false;
-			}
-		}
 	}
 
 	private void processCommandQueue() {
@@ -263,14 +221,30 @@ public class DefaultReactor implements Reactor, Runnable {
 	}
 
 	public void sendMessage(Message message) {
-		// add to cmd queue
 		connectionManager.sendMessage(message);
 		makeChannelWritable(message.getChannel());
 	}
 
-	public void stop() {
-		running = false;
+	public void wakeup() {
 		selector.wakeup();
-		executorService.shutdown();
+	}
+
+	public void processQueues() throws InterruptedException {
+		while (selector.keys().isEmpty()) {
+			// wait here for ServerSocket registration
+			commandQueue.take().run();
+		}
+		processCommandQueue();
+		try {
+			selector.select();
+
+			for (SelectionKey key : selector.selectedKeys()) {
+				((Runnable) key.attachment()).run();
+			}
+			selector.selectedKeys().clear();
+
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 }

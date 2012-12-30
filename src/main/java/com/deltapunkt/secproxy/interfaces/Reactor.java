@@ -6,8 +6,6 @@ import java.nio.channels.SocketChannel;
 import com.deltapunkt.secproxy.Message;
 
 public interface Reactor {
-	void start();
-
 	void registerAcceptor(SocketAddress sa, AcceptHandler pf);
 
 	void registerConnector(SocketAddress targetAddress, ConnectHandler ch);
@@ -20,5 +18,7 @@ public interface Reactor {
 
 	void sendMessage(Message message);
 
-	void stop();
+	void wakeup();
+
+	void processQueues() throws InterruptedException;
 }

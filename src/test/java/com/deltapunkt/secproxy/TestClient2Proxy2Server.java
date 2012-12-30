@@ -11,6 +11,7 @@ import java.nio.channels.SocketChannel;
 import org.junit.Test;
 
 import com.deltapunkt.secproxy.interfaces.Client;
+import com.deltapunkt.secproxy.interfaces.LifeCycle;
 import com.deltapunkt.secproxy.interfaces.ProxyFactory;
 import com.deltapunkt.secproxy.interfaces.Reactor;
 import com.deltapunkt.secproxy.interfaces.Server;
@@ -27,11 +28,13 @@ public class TestClient2Proxy2Server {
 		server.start();
 
 		Reactor reactor = createReactor();
-		reactor.start();
+		LifeCycle manager = ReactorProcess.create(reactor);
+		manager.start();
 
 		SocketAddress targetAddress = new InetSocketAddress("localhost",
 				SERVER_PORT);
-		ProxyFactory proxyFactory = new PortForwardProxyFactory(reactor, targetAddress);
+		ProxyFactory proxyFactory = new PortForwardProxyFactory(reactor,
+				targetAddress);
 		SocketAddress proxyAddress = new InetSocketAddress("localhost",
 				PROXY_PORT);
 
@@ -49,7 +52,7 @@ public class TestClient2Proxy2Server {
 		assertEquals(serverMessageSentToClient, messageReceivedFromServer);
 
 		client.disconnect();
-		reactor.stop();
+		manager.stop();
 		server.stop();
 
 		Thread.sleep(300);

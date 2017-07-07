@@ -1,9 +1,9 @@
 package com.deltapunkt.secproxy.interfaces;
 
+import com.deltapunkt.secproxy.Message;
+
 import java.net.SocketAddress;
 import java.nio.channels.SocketChannel;
-
-import com.deltapunkt.secproxy.Message;
 
 public interface Reactor {
 	void registerAcceptor(SocketAddress sa, AcceptHandler pf);

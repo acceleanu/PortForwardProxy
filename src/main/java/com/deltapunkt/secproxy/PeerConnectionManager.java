@@ -1,5 +1,7 @@
 package com.deltapunkt.secproxy;
 
+import com.deltapunkt.secproxy.interfaces.MessageConsumer;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
@@ -7,8 +9,6 @@ import java.util.Map;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingDeque;
-
-import com.deltapunkt.secproxy.interfaces.MessageConsumer;
 
 public class PeerConnectionManager implements ConnectionManager {
 
@@ -18,13 +18,13 @@ public class PeerConnectionManager implements ConnectionManager {
 
 	public PeerConnectionManager(TaskScheduler taskScheduler) {
 		this.taskScheduler = taskScheduler;
-		consumerMap = new ConcurrentHashMap<SocketChannel, MessageConsumer>();
-		writeMap = new ConcurrentHashMap<SocketChannel, BlockingDeque<ByteBuffer>>();
+		consumerMap = new ConcurrentHashMap<>();
+		writeMap = new ConcurrentHashMap<>();
 	}
 
 	public void addConnection(SocketChannel sc, MessageConsumer messageConsumer) {
 		consumerMap.put(sc, messageConsumer);
-		writeMap.put(sc, new LinkedBlockingDeque<ByteBuffer>());
+		writeMap.put(sc, new LinkedBlockingDeque<>());
 	}
 
 	public void sendMessage(Message message) {

@@ -1,10 +1,10 @@
 package com.deltapunkt.secproxy;
 
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-
 import com.deltapunkt.secproxy.interfaces.LifeCycle;
 import com.deltapunkt.secproxy.interfaces.Reactor;
+
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Defines the execution policy for the Reactor.

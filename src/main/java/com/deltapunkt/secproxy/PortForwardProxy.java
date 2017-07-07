@@ -1,11 +1,11 @@
 package com.deltapunkt.secproxy;
 
+import com.deltapunkt.secproxy.interfaces.Proxy;
+import com.deltapunkt.secproxy.interfaces.Reactor;
+
 import java.nio.channels.SocketChannel;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.LinkedBlockingDeque;
-
-import com.deltapunkt.secproxy.interfaces.Proxy;
-import com.deltapunkt.secproxy.interfaces.Reactor;
 
 public class PortForwardProxy implements Proxy {
 	private final Reactor reactor;
@@ -17,7 +17,7 @@ public class PortForwardProxy implements Proxy {
 		this.reactor = reactor;
 		this.clientChannel = clientChannel;
 		this.targetChannel = targetChannel;
-		queue = new LinkedBlockingDeque<Message>();
+		queue = new LinkedBlockingDeque<>();
 	}
 
 	public void onReceiveMessage(Message m) {

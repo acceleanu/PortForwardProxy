@@ -11,7 +11,7 @@ public class TaskScheduler implements Runnable {
 	private volatile Thread	schedulerThread;
 
 	public TaskScheduler(int n) {
-		taskQueue = new LinkedBlockingDeque<Runnable>(n);
+		taskQueue = new LinkedBlockingDeque<>(n);
 		exec = Executors.newFixedThreadPool(n + 1);
 		exec.execute(this);
 	}

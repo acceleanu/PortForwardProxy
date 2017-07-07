@@ -1,12 +1,12 @@
 package com.deltapunkt.secproxy;
 
 
-import java.net.InetSocketAddress;
-import java.net.SocketAddress;
-
 import com.deltapunkt.secproxy.interfaces.LifeCycle;
 import com.deltapunkt.secproxy.interfaces.ProxyFactory;
 import com.deltapunkt.secproxy.interfaces.Reactor;
+
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 
 public class Main 
 {

@@ -1,11 +1,11 @@
 package com.deltapunkt.secproxy;
 
+import com.deltapunkt.secproxy.interfaces.Client;
+
 import java.io.IOException;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
-
-import com.deltapunkt.secproxy.interfaces.Client;
 
 public class EchoClient implements Client {
 	private SocketChannel clientChannel;

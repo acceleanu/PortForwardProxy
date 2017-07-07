@@ -1,5 +1,10 @@
 package com.deltapunkt.secproxy;
 
+import com.deltapunkt.secproxy.interfaces.AcceptHandler;
+import com.deltapunkt.secproxy.interfaces.ConnectHandler;
+import com.deltapunkt.secproxy.interfaces.MessageConsumer;
+import com.deltapunkt.secproxy.interfaces.Reactor;
+
 import java.io.IOException;
 import java.net.SocketAddress;
 import java.nio.channels.SelectionKey;
@@ -9,11 +14,6 @@ import java.nio.channels.SocketChannel;
 import java.util.Iterator;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
-
-import com.deltapunkt.secproxy.interfaces.AcceptHandler;
-import com.deltapunkt.secproxy.interfaces.ConnectHandler;
-import com.deltapunkt.secproxy.interfaces.MessageConsumer;
-import com.deltapunkt.secproxy.interfaces.Reactor;
 
 public class DefaultReactor implements Reactor {
 	private static final int OP_NONE = 0;
@@ -31,7 +31,7 @@ public class DefaultReactor implements Reactor {
 			throw new RuntimeException("Selector.open() failed!", e);
 		}
 
-		BlockingQueue<Runnable> commandQueue = new LinkedBlockingDeque<Runnable>();
+		BlockingQueue<Runnable> commandQueue = new LinkedBlockingDeque<>();
 		return new DefaultReactor(connectionManager, selector, commandQueue);
 	}
 
@@ -165,58 +165,50 @@ public class DefaultReactor implements Reactor {
 	}
 
 	public void makeChannelReadable(final SocketChannel sc) {
-		commandQueue.offer(new Runnable() {
-			public void run() {
-				try {
-					Runnable readCommand = new Runnable() {
-						public void run() {
-							try {
-								connectionManager.onRead(sc);
-							} catch (Exception e) {
-								// more complex exception handling
-								e.printStackTrace();
-								throw new RuntimeException("Read Error!", e);
-							}
-						}
-					};
-					sc.register(selector, SelectionKey.OP_READ, readCommand);
-				} catch (Exception e) {
-					System.out.println("sc=" + sc);
-					e.printStackTrace();
-					throw new RuntimeException(e);
-				}
-			}
-		});
+		commandQueue.offer(() -> {
+            try {
+                Runnable readCommand = () -> {
+                    try {
+                        connectionManager.onRead(sc);
+                    } catch (Exception e) {
+                        // more complex exception handling
+                        e.printStackTrace();
+                        throw new RuntimeException("Read Error!", e);
+                    }
+                };
+                sc.register(selector, SelectionKey.OP_READ, readCommand);
+            } catch (Exception e) {
+                System.out.println("sc=" + sc);
+                e.printStackTrace();
+                throw new RuntimeException(e);
+            }
+        });
 		selector.wakeup();
 	}
 
 	public void makeChannelWritable(final SocketChannel sc) {
-		commandQueue.offer(new Runnable() {
-			public void run() {
-				Runnable writeCommand = new Runnable() {
-					public void run() {
-						try {
-							boolean finishedWriting = connectionManager
-									.onWrite(sc);
-							if (finishedWriting) {
-								makeChannelReadable(sc);
-							}
-						} catch (Exception e) {
-							// more complex exception handling
-							e.printStackTrace();
-							throw new RuntimeException("Write Error!", e);
-						}
-					}
-				};
-				try {
-					sc.register(selector, SelectionKey.OP_WRITE, writeCommand);
-				} catch (Exception e) {
-					e.printStackTrace();
-					System.out.println("sc=" + sc);
-					throw new RuntimeException(e);
-				}
-			}
-		});
+		commandQueue.offer(() -> {
+            Runnable writeCommand = () -> {
+                try {
+                    boolean finishedWriting = connectionManager
+                            .onWrite(sc);
+                    if (finishedWriting) {
+                        makeChannelReadable(sc);
+                    }
+                } catch (Exception e) {
+                    // more complex exception handling
+                    e.printStackTrace();
+                    throw new RuntimeException("Write Error!", e);
+                }
+            };
+            try {
+                sc.register(selector, SelectionKey.OP_WRITE, writeCommand);
+            } catch (Exception e) {
+                e.printStackTrace();
+                System.out.println("sc=" + sc);
+                throw new RuntimeException(e);
+            }
+        });
 		selector.wakeup();
 	}
 

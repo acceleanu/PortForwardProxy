@@ -1,6 +1,11 @@
 package com.deltapunkt.secproxy;
 
-import static org.junit.Assert.assertEquals;
+import com.deltapunkt.secproxy.interfaces.Client;
+import com.deltapunkt.secproxy.interfaces.LifeCycle;
+import com.deltapunkt.secproxy.interfaces.ProxyFactory;
+import com.deltapunkt.secproxy.interfaces.Reactor;
+import com.deltapunkt.secproxy.interfaces.Server;
+import org.junit.Test;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -8,13 +13,7 @@ import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 
-import org.junit.Test;
-
-import com.deltapunkt.secproxy.interfaces.Client;
-import com.deltapunkt.secproxy.interfaces.LifeCycle;
-import com.deltapunkt.secproxy.interfaces.ProxyFactory;
-import com.deltapunkt.secproxy.interfaces.Reactor;
-import com.deltapunkt.secproxy.interfaces.Server;
+import static org.junit.Assert.assertEquals;
 
 public class TestClient2Proxy2Server {
 	private static final int PROXY_PORT = 2222;

@@ -1,5 +1,7 @@
 package com.deltapunkt.secproxy;
 
+import com.deltapunkt.secproxy.interfaces.Server;
+
 import java.io.IOException;
 import java.net.SocketAddress;
 import java.nio.channels.ServerSocketChannel;
@@ -7,8 +9,6 @@ import java.nio.channels.SocketChannel;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-
-import com.deltapunkt.secproxy.interfaces.Server;
 
 public class EchoServer implements Server, Runnable {
 	private final ExecutorService es;

@@ -1,0 +1,24 @@
+apply plugin: 'java'
+
+sourceCompatibility = 1.8
+version = '1.0'
+
+ext {
+	def jvmVersion = org.gradle.internal.jvm.Jvm.current()
+	def gradleVersion = GradleVersion.current().getVersion()
+	
+	println("JVM=" + jvmVersion)
+	println("Gradle=" + gradleVersion)
+}
+
+repositories {
+    maven {
+        url "https://repo1.maven.org/maven2"
+    }
+}
+
+dependencies {
+    testCompile 'junit:junit:4.12'
+    testCompile 'org.assertj:assertj-core:3.6.2'
+}
+

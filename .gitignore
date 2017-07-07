@@ -4,4 +4,6 @@ target
 build
 .project
 .classpath
+.gradle
+bin
 
